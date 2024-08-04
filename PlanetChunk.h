@@ -84,6 +84,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Noise")
 	float warpScale2 = 80;
 
+	UPROPERTY(EditAnywhere, Category = "Noise")
+	float D = 0.0f;
+
+
+
+
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -123,8 +129,10 @@ private:
 
 	FastNoiseLite* Noise;
 	FastNoiseLite* Noise2;
+	FastNoiseLite* NoiseMountain;
 
 	void setNoiseVariables(float Freq, int Octaves, int Seed, float Lac, float Gain, float warp);
 	void setNoiseVariables2(float Freq, int Octaves, int Seed, float Lac, float Gain, float warp);
 
+	FColor getColor(float percentage);
 };
