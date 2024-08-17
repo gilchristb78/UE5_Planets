@@ -15,8 +15,12 @@ APlanetChunk::APlanetChunk()
 	RootComponent = Mesh;
 
 	Noise = new FastNoiseLite();
-	Noise2 = new FastNoiseLite();
+	NoiseMountainBiome = new FastNoiseLite();
 	NoiseMountain = new FastNoiseLite();
+	NoisePlateau = new FastNoiseLite();
+	NoisePlateauBiome = new FastNoiseLite();
+
+	
 }
 
 void APlanetChunk::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -25,19 +29,12 @@ void APlanetChunk::PostEditChangeProperty(FPropertyChangedEvent& PropertyChanged
 
 	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, Frequency) ||
 		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, FractalOctaves) ||
-		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, NoiseSeed) ||
 		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, FractalLacunarity) ||
 		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, FractalGain) ||
 		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, warpScale) ||
-		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, Frequency2) ||
-		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, FractalOctaves2) ||
-		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, NoiseSeed2) ||
-		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, FractalLacunarity2) ||
-		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, FractalGain2) ||
-		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, warpScale2) ||
-		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, D))
+		PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(APlanetChunk, planetSeed))
 	{
-		setNoiseVariables(Frequency, FractalOctaves, NoiseSeed, FractalLacunarity, FractalGain, warpScale);
+		setNoiseVariables();
 		addNoise();
 		Mesh->SetMaterial(0, Material);
 		Mesh->CreateMeshSection(0, MeshData.Vertices, MeshData.Triangles, MeshData.Normals, MeshData.UV0, MeshData.UVX, MeshData.UVY, MeshData.UVZ, MeshData.Colors, TArray<FProcMeshTangent>(), true);
@@ -48,7 +45,7 @@ void APlanetChunk::BeginPlay()
 {
 	addVertices();
 	addTriangles();
-	setNoiseVariables(Frequency, FractalOctaves, NoiseSeed, FractalLacunarity, FractalGain, warpScale);
+	setNoiseVariables();
 	addNoise();
 
 	Mesh->SetMaterial(0, Material);
@@ -194,6 +191,30 @@ void APlanetChunk::addTriangles()
 
 void APlanetChunk::addNoise()
 {
+	
+	FRandomStream stream;
+	stream.Initialize( 4);
+
+	//plateaus.Add(FVector(stream.FRandRange(0, 1), stream.FRandRange(0, 1), stream.FRandRange(0, 1)).GetSafeNormal());
+
+	float tnoise = 0;
+	FVector ttempRand = FVector::UpVector;
+	while (tnoise < 0.001)
+	{
+		ttempRand = FVector(stream.FRandRange(0, 1), stream.FRandRange(0, 1), stream.FRandRange(0, 1)).GetSafeNormal() * 1000;
+		FVector tWarpedLoc = ttempRand;
+		Noise->DomainWarp(tWarpedLoc.X, tWarpedLoc.Y, tWarpedLoc.Z);
+		tnoise = Noise->GetNoise(tWarpedLoc.X, tWarpedLoc.Y, tWarpedLoc.Z);
+		tnoise = (tnoise + 1) / 50 + 0.98;
+		tnoise = FMath::Pow(FMath::Max((tnoise - 1.001) * 50, 0), 1.2);
+	}
+
+	plateaus.Add(ttempRand.GetSafeNormal());
+	
+
+	//plateaus.Add(FMath::VRand().GetSafeNormal());
+	//plateaus.Add(FVector::UpVector.GetSafeNormal());
+
 	MeshData.Colors.Empty();
 	for (int i = 0; i < MeshData.Vertices.Num(); i++)
 	{
@@ -203,24 +224,56 @@ void APlanetChunk::addNoise()
 		FVector WarpedLoc = ref;
 		Noise->DomainWarp(WarpedLoc.X, WarpedLoc.Y, WarpedLoc.Z);
 		float noise = Noise->GetNoise(WarpedLoc.X, WarpedLoc.Y, WarpedLoc.Z);
-		noise = (noise + 1) / 50 + 0.98 /* 1 <= noise <= 1.02*/;
+		noise = (noise + 1) / 50 + 0.98 /* 0.98 <= noise <= 1.02*/;
 
 		FVector WarpedLocMountain = ref;
 		NoiseMountain->DomainWarp(WarpedLocMountain.X, WarpedLocMountain.Y, WarpedLocMountain.Z);
 		float mountainNoise = NoiseMountain->GetNoise(WarpedLocMountain.X, WarpedLocMountain.Y, WarpedLocMountain.Z);
-		mountainNoise = 1 / (1 + (100 * exp(-8 * mountainNoise + D))); // shape the mountains to be sharp with highs and lows
+		mountainNoise = 1 / (1 + (80 * exp(-10 * mountainNoise))); // shape the mountains to be sharp with highs and lows
 		float inlandMask = FMath::Pow(FMath::Max((noise - 1.001) * 50,0),1.2);
 		mountainNoise *= inlandMask;
 
 		FVector WarpedLocMask = ref;
-		Noise2->DomainWarp(WarpedLocMask.X, WarpedLocMask.Y, WarpedLocMask.Z);
-		float noiseMask = Noise2->GetNoise(WarpedLocMask.X, WarpedLocMask.Y, WarpedLocMask.Z);
+		NoiseMountainBiome->DomainWarp(WarpedLocMask.X, WarpedLocMask.Y, WarpedLocMask.Z);
+		float noiseMask = NoiseMountainBiome->GetNoise(WarpedLocMask.X, WarpedLocMask.Y, WarpedLocMask.Z);
 		noiseMask = 1 / (1 + (exp(-30 * ((noiseMask + 1) / 2 - 0.1) + 17)));
 		mountainNoise *= noiseMask;
 		//MeshData.Colors.Add(getColor(noiseMask * 100));
 
+		//float plateuaNoise = FVector::Dist(plateaus[0] * 1000, ref) < 50;
+		//change to 50 + noise((ref - plat[0]*1000).getsafenormal) * some number for min max width
 
-		if (mountainNoise > 0.15)
+		FVector WarpedLocPlatMask = ref;
+		NoisePlateauBiome->DomainWarp(WarpedLocPlatMask.X, WarpedLocPlatMask.Y, WarpedLocPlatMask.Z);
+		float noisePlatMask = NoisePlateauBiome->GetNoise(WarpedLocPlatMask.X, WarpedLocPlatMask.Y, WarpedLocPlatMask.Z);
+		inlandMask = FMath::Pow(FMath::Max((noise - 0.995) * 40, 0), 0.4);
+		noisePlatMask *= inlandMask;
+		noisePlatMask = 1 / (1 + (exp(-50 * (noisePlatMask - 0.3))));
+		float plateuaNoiseBiome = noisePlatMask * (1 - FMath::Pow(noiseMask,1)); //might need to be * noisemask < 0.1
+		//add the actual smaller noiser that will be the actual plateaus (smaller than mountain range)
+		//similar huge step 0 to 1, multiply by the plateua mask 
+
+		FVector WarpedLocPlat = ref;
+		NoisePlateau->DomainWarp(WarpedLocPlat.X, WarpedLocPlat.Y, WarpedLocPlat.Z);
+		float noisePlat = NoisePlateau->GetNoise(WarpedLocPlat.X, WarpedLocPlat.Y, WarpedLocPlat.Z);
+		float noisePlatP1 = 1 / (1 + (exp(-200 * (noisePlat - 0.1))));
+		float noisePlatP2 = 1 / (1 + (exp(-200 * (noisePlat - 0.4))));
+		noisePlat = noisePlatP1 + noisePlatP2 * 0.8;
+
+		noisePlat *= plateuaNoiseBiome;
+		
+
+		//MeshData.Colors.Add(getColor((noisePlatMask) * 100));
+
+		if (plateuaNoiseBiome > 0.1 && noisePlat > 0.1)
+		{
+			MeshData.Colors.Add(FColor(255, 0, 0));
+		}
+		else if (plateuaNoiseBiome > 0.1)
+		{
+			MeshData.Colors.Add(FColor(255, 150, 0));
+		}
+		else if (mountainNoise > 0.1)
 		{
 			MeshData.Colors.Add(FColor::White);
 		}
@@ -249,41 +302,50 @@ void APlanetChunk::addNoise()
 		//add mountains / valleys
 		//add rivers
 		//add lakes
-		float height = ((size * noise) + (mountainNoise * (size / 10)));
+		float height = ((size * noise) + (mountainNoise * (size / 10))) + (noisePlat * (size / 120));
 		MeshData.Vertices[i] = MeshData.Vertices[i].GetSafeNormal() * height;
 
 	}
 }
 
-void APlanetChunk::setNoiseVariables(float Freq, int Octaves, int Seed, float Lac, float Gain, float warp)
+void APlanetChunk::setNoiseVariables()
 {
-	Noise->SetSeed(Seed);
-	Noise->SetFrequency(Freq);
+	NoisePlateau->SetSeed(planetSeed + 4);
+	NoisePlateau->SetFrequency(Frequency);
+	NoisePlateau->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	NoisePlateau->SetFractalType(FastNoiseLite::FractalType_FBm);
+	NoisePlateau->SetDomainWarpType(FastNoiseLite::DomainWarpType_BasicGrid);
+	NoisePlateau->SetDomainWarpAmp(warpScale);
+	NoisePlateau->SetFractalOctaves(FractalOctaves);
+	NoisePlateau->SetFractalLacunarity(FractalLacunarity);
+	NoisePlateau->SetFractalGain(FractalGain);
+	setNoiseConstants();
+}
+
+void APlanetChunk::setNoiseConstants()
+{
+	Noise->SetSeed(planetSeed);
+	Noise->SetFrequency(0.002f);
 	Noise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
 	Noise->SetFractalType(FastNoiseLite::FractalType_FBm);
 	Noise->SetDomainWarpType(FastNoiseLite::DomainWarpType_BasicGrid);
-	Noise->SetDomainWarpAmp(warp);
-	Noise->SetFractalOctaves(Octaves);
-	Noise->SetFractalLacunarity(Lac);
-	Noise->SetFractalGain(Gain);
+	Noise->SetDomainWarpAmp(450.0f);
+	Noise->SetFractalOctaves(4.0f);
+	Noise->SetFractalLacunarity(2.1f);
+	Noise->SetFractalGain(0.5f);
 
-	setNoiseVariables2(Frequency2, FractalOctaves2, NoiseSeed2, FractalLacunarity2, FractalGain2, warpScale2);
-}
+	NoiseMountainBiome->SetSeed(planetSeed + 1);
+	NoiseMountainBiome->SetFrequency(0.005f);
+	NoiseMountainBiome->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	NoiseMountainBiome->SetFractalType(FastNoiseLite::FractalType_FBm);
+	NoiseMountainBiome->SetDomainWarpType(FastNoiseLite::DomainWarpType_OpenSimplex2Reduced);
+	NoiseMountainBiome->SetDomainWarpAmp(1.0f);
+	NoiseMountainBiome->SetFractalOctaves(1.0f);
+	NoiseMountainBiome->SetFractalLacunarity(2.0f);
+	NoiseMountainBiome->SetFractalGain(0.5f);
 
-void APlanetChunk::setNoiseVariables2(float Freq, int Octaves, int Seed, float Lac, float Gain, float warp)
-{
-	Noise2->SetSeed(Seed);
-	Noise2->SetFrequency(Freq);
-	Noise2->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-	Noise2->SetFractalType(FastNoiseLite::FractalType_FBm);
-	Noise2->SetDomainWarpType(FastNoiseLite::DomainWarpType_OpenSimplex2Reduced);
-	Noise2->SetDomainWarpAmp(warp);
-	Noise2->SetFractalOctaves(Octaves);
-	Noise2->SetFractalLacunarity(Lac);
-	Noise2->SetFractalGain(Gain);
-
-	NoiseMountain->SetSeed(0.0f);
-	NoiseMountain->SetFrequency(0.04f);
+	NoiseMountain->SetSeed(planetSeed + 2);
+	NoiseMountain->SetFrequency(0.03f);
 	NoiseMountain->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
 	NoiseMountain->SetFractalType(FastNoiseLite::FractalType_Ridged);
 	NoiseMountain->SetDomainWarpType(FastNoiseLite::DomainWarpType_BasicGrid);
@@ -291,6 +353,16 @@ void APlanetChunk::setNoiseVariables2(float Freq, int Octaves, int Seed, float L
 	NoiseMountain->SetFractalOctaves(4.0f);
 	NoiseMountain->SetFractalLacunarity(2.5f);
 	NoiseMountain->SetFractalGain(0.5f);
+
+	NoisePlateauBiome->SetSeed(planetSeed + 3);
+	NoisePlateauBiome->SetFrequency(0.005f);
+	NoisePlateauBiome->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	NoisePlateauBiome->SetFractalType(FastNoiseLite::FractalType_FBm);
+	NoisePlateauBiome->SetDomainWarpType(FastNoiseLite::DomainWarpType_BasicGrid);
+	NoisePlateauBiome->SetDomainWarpAmp(120.0f);
+	NoisePlateauBiome->SetFractalOctaves(1.0f);
+	NoisePlateauBiome->SetFractalLacunarity(2.0f);
+	NoisePlateauBiome->SetFractalGain(0.5f);
 }
 
 FColor APlanetChunk::getColor(float percentage)

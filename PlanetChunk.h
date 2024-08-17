@@ -48,44 +48,27 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Planet")
 	int subdivisions = 2;
 
+	UPROPERTY(EditAnywhere, Category = "Planet")
+	float planetSeed = 0.0f;
+
+
+
 	UPROPERTY(EditAnywhere, Category = "Noise")
 	float Frequency = 0.0015f;
-
-	UPROPERTY(EditAnywhere, Category = "Noise")
-	int FractalOctaves = 3;
-
-	UPROPERTY(EditAnywhere, Category = "Noise")
-	int NoiseSeed = 0;
-
-	UPROPERTY(EditAnywhere, Category = "Noise")
-	float FractalLacunarity = 0.6f;
-
-	UPROPERTY(EditAnywhere, Category = "Noise")
-	float FractalGain = 0.2f;
 
 	UPROPERTY(EditAnywhere, Category = "Noise")
 	float warpScale = 80;
 
 	UPROPERTY(EditAnywhere, Category = "Noise")
-	float Frequency2 = 0.0015f;
+	int FractalOctaves = 1;
+	UPROPERTY(EditAnywhere, Category = "Noise")
+	float FractalLacunarity = 2.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Noise")
-	int FractalOctaves2 = 3;
+	float FractalGain = 0.2f;
 
-	UPROPERTY(EditAnywhere, Category = "Noise")
-	int NoiseSeed2 = 0;
+	
 
-	UPROPERTY(EditAnywhere, Category = "Noise")
-	float FractalLacunarity2 = 0.6f;
-
-	UPROPERTY(EditAnywhere, Category = "Noise")
-	float FractalGain2 = 0.2f;
-
-	UPROPERTY(EditAnywhere, Category = "Noise")
-	float warpScale2 = 80;
-
-	UPROPERTY(EditAnywhere, Category = "Noise")
-	float D = 0.0f;
 
 
 
@@ -128,11 +111,15 @@ private:
 	void addNoise();
 
 	FastNoiseLite* Noise;
-	FastNoiseLite* Noise2;
+	FastNoiseLite* NoiseMountainBiome;
 	FastNoiseLite* NoiseMountain;
+	FastNoiseLite* NoisePlateau;
+	FastNoiseLite* NoisePlateauBiome;
 
-	void setNoiseVariables(float Freq, int Octaves, int Seed, float Lac, float Gain, float warp);
-	void setNoiseVariables2(float Freq, int Octaves, int Seed, float Lac, float Gain, float warp);
+	TArray<FVector> plateaus;
+
+	void setNoiseVariables();
+	void setNoiseConstants();
 
 	FColor getColor(float percentage);
 };
