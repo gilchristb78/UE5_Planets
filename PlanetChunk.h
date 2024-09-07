@@ -115,6 +115,8 @@ private:
 	FastNoiseLite* NoiseMountain;
 	FastNoiseLite* NoisePlateau;
 	FastNoiseLite* NoisePlateauBiome;
+	FastNoiseLite* NoiseHill;
+	FastNoiseLite* NoiseHillBiome;
 
 	TArray<FVector> plateaus;
 
